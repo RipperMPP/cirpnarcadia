@@ -11,8 +11,8 @@
   <header class="topbar">
     <div class="brand-mark" aria-hidden="true">PN</div>
     <div class="brand-copy">
-      <strong>POLICE RP</strong>
-      <span>CENTRE DE SÉLECTION</span>
+      <strong>POLICE NATIONALE</strong>
+      <span>CENTRE D'INFORMATION ET DE RECRUTEMENT</span>
     </div>
     <span class="environment" id="environment-label">PORTAIL CANDIDAT</span>
     <a href="recruiter.html" style="color:#fff;font-size:12px;font-weight:700;border:1px solid #ffffff66;border-radius:8px;padding:7px 12px;text-decoration:none;white-space:nowrap">Accès recruteur</a>
@@ -21,22 +21,41 @@
   <main class="page-shell">
     <section class="intro">
       <p class="eyebrow">RECRUTEMENT · ÉVALUATION</p>
-      <h1>Examen de sélection</h1>
-      <p class="muted">Connectez-vous pour accéder à votre session d'examen. Les règles et procédures évaluées sont celles de votre serveur RP.</p>
+      <h1>Espace Candidat</h1>
+      <p class="muted">Connectez-vous pour accéder à votre session d'examen.</p>
     </section>
 
-    <section class="panel" id="auth-panel">
-      <h2>Connexion</h2>
-      <p class="muted small">Utilisez le compte qui vous a été communiqué par l'équipe de recrutement.</p>
-      <form id="login-form">
-        <label for="email">Adresse e-mail</label>
-        <input id="email" name="email" type="email" autocomplete="username" required>
-        <label for="password">Mot de passe</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-        <button class="button primary" type="submit">Se connecter</button>
-        <p class="form-message" id="auth-message" role="status"></p>
-      </form>
-    </section>
+
+<section class="panel" id="auth-panel">
+  <h2>Connexion</h2>
+  <p class="muted small">Utilisez le compte qui vous a été communiqué par l'équipe de recrutement.</p>
+
+  <form id="login-form">
+    <label for="email">Adresse e-mail</label>
+    <input
+      id="email"
+      name="email"
+      type="email"
+      placeholder="matricule@pn.fr"
+      autocomplete="username"
+      required
+    >
+
+    <label for="password">Mot de passe</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      placeholder="Saisissez votre mot de passe"
+      autocomplete="current-password"
+      required
+    >
+
+    <button class="button primary" type="submit">Se connecter</button>
+    <p class="form-message" id="auth-message" role="status"></p>
+  </form>
+</section>
+
 
     <section class="panel hidden" id="candidate-panel">
       <div class="panel-heading">
