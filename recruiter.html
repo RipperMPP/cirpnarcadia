@@ -48,7 +48,7 @@ const actions0=a=>{const d=`<button class="button quiet" data-act="detail" data-
  return d+(me.role==="admin"&&a.candidate_id!==me.id&&a.passed===true&&a.review_status!=="pending"?` <button class="button quiet" data-act="removepass" data-id="${a.id}">Retirer la réussite</button>`:"")};
 const sb=supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey),$=i=>document.getElementById(i);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let me,exam,qs=[],cur="exams";
+let me,exam,qs=[],cur="exams",editQ=null;
 const say=(t,ok)=>{$("msg").textContent=t||"";$("msg").style.color=ok?"#18794e":"var(--red)"};
 const val=id=>$(id).value.trim();
 function show(on){$("login").classList.toggle("hidden",on);$("app").classList.toggle("hidden",!on)}
@@ -69,12 +69,12 @@ async function loadExams(){const{data,error}=await sb.from("exams").select("id,c
  <h3 style="margin-top:22px">Nouvel examen</h3><div class="row"><div><label>Code</label><input id="nc" placeholder="SEL-2026-002"></div><div><label>Titre</label><input id="nt"></div><div><label>Durée (min)</label><input id="nd" type="number" value="25"></div><div><label>Nombre de questions</label><input id="nq" type="number" min="1" max="200" value="30"></div><div><label>Erreurs max autorisées</label><input id="ne" type="number" min="0" value="9"></div><button class="button primary" data-act="newexam">Créer</button></div>`}
 async function openExam(id){const{data:e}=await sb.from("exams").select("*").eq("id",id).single();exam=e;
  const{data}=await sb.from("questions").select("id,prompt,active,question_options!question_id(id,option_text,display_order),answer_keys!question_id(correct_option_id)").eq("exam_id",id).order("created_at");qs=data||[];drawExam()}
-function drawExam(){const e=exam;$("view").innerHTML=`<button class="button quiet" data-tab="exams">← Examens</button><h2 style="margin-top:12px">${esc(e.code)} · ${esc(e.title)}</h2>
+function drawExam(){editQ=null;const e=exam;$("view").innerHTML=`<button class="button quiet" data-tab="exams">← Examens</button><h2 style="margin-top:12px">${esc(e.code)} · ${esc(e.title)}</h2>
  <div class="row"><div><label>Code de l'examen</label><input id="ec" value="${esc(e.code)}"></div><div><label>Titre</label><input id="et" value="${esc(e.title)}"></div><div><label>Durée (min)</label><input id="ed" type="number" value="${e.duration_minutes}"></div><div><label>Nombre de questions</label><input id="eq" type="number" min="1" max="200" value="${e.question_count}"></div><div><label>Erreurs max autorisées</label><input id="ee" type="number" min="0" value="${e.max_errors}"></div><button class="button primary" data-act="saveexam">Enregistrer</button></div>
  <div class="row" style="margin:14px 0"><button class="button quiet" data-act="check">Vérifier l'examen</button><button class="button ${e.is_active?"quiet":"primary"}" data-act="toggle">${e.is_active?"Désactiver":"Activer (après vérification)"}</button><button class="button quiet" data-act="delexam" style="color:var(--red)">Supprimer l'examen</button></div><div id="chk"></div>
- <h3>Questions (${qs.length})</h3>${qs.map(q=>{const k=(Array.isArray(q.answer_keys)?q.answer_keys[0]:q.answer_keys)?.correct_option_id;return`<div class="q"><strong>${esc(q.prompt)}</strong> ${q.active?"":'<span class="tag bad">désactivée</span>'}<ul>${(q.question_options||[]).sort((a,b)=>a.display_order-b.display_order).map(o=>`<li>${esc(o.option_text)} ${o.id===k?'<span class="tag ok">bonne réponse</span>':""}</li>`).join("")}</ul><button class="button quiet" data-act="qactive" data-id="${q.id}">${q.active?"Désactiver":"Réactiver"}</button> <button class="button quiet" data-act="delq" data-id="${q.id}">Supprimer</button></div>`}).join("")}
- <h3>Ajouter une question</h3><label>Énoncé</label><input id="qp">${[1,2,3,4].map(i=>`<div class="row"><div><label>Réponse ${i}${i>2?" (optionnelle)":""}</label><input class="qo"></div><label style="flex:0;min-width:130px"><input type="radio" name="qc" value="${i-1}" ${i==1?"checked":""} style="width:auto"> Bonne réponse</label></div>`).join("")}
- <button class="button primary" style="margin-top:12px" data-act="addq">Ajouter la question</button>`}
+ <h3>Questions (${qs.length})</h3>${qs.map(q=>{const k=(Array.isArray(q.answer_keys)?q.answer_keys[0]:q.answer_keys)?.correct_option_id;return`<div class="q"><strong>${esc(q.prompt)}</strong> ${q.active?"":'<span class="tag bad">désactivée</span>'}<ul>${(q.question_options||[]).sort((a,b)=>a.display_order-b.display_order).map(o=>`<li>${esc(o.option_text)} ${o.id===k?'<span class="tag ok">bonne réponse</span>':""}</li>`).join("")}</ul><button class="button quiet" data-act="editq" data-id="${q.id}">Modifier</button> <button class="button quiet" data-act="qactive" data-id="${q.id}">${q.active?"Désactiver":"Réactiver"}</button> <button class="button quiet" data-act="delq" data-id="${q.id}">Supprimer</button></div>`}).join("")}
+ <h3 id="qh">Ajouter une question</h3><label>Énoncé</label><input id="qp">${[1,2,3,4].map(i=>`<div class="row"><div><label>Réponse ${i}${i>2?" (optionnelle)":""}</label><input class="qo"></div><label style="flex:0;min-width:130px"><input type="radio" name="qc" value="${i-1}" ${i==1?"checked":""} style="width:auto"> Bonne réponse</label></div>`).join("")}
+ <button class="button primary" style="margin-top:12px" id="qsave" data-act="addq">Ajouter la question</button> <button class="button quiet hidden" style="margin-top:12px" id="qcancel" data-act="qcancel">Annuler la modification</button>`}
 async function addQuestion(){const prompt=val("qp"),opts=[...document.querySelectorAll(".qo")].map((i,n)=>({t:i.value.trim(),n})).filter(o=>o.t),ci=+document.querySelector("[name=qc]:checked").value;
  if(!prompt||opts.length<2)return say("Énoncé et 2 réponses minimum.");const good=opts.find(o=>o.n===ci);if(!good)return say("La bonne réponse cochée est vide.");
  const{data:q,error}=await sb.from("questions").insert({exam_id:exam.id,prompt}).select("id").single();if(error)return say(error.message);
@@ -83,6 +83,19 @@ async function addQuestion(){const prompt=val("qp"),opts=[...document.querySelec
  const{error:e3}=gid?await sb.from("answer_keys").insert({question_id:q.id,correct_option_id:gid}):{error:e2||{message:"Erreur"}};
  if(e2||e3){await sb.from("questions").delete().eq("id",q.id);return say((e2||e3).message)}
  say("Question ajoutée.",1);openExam(exam.id)}
+async function saveQuestion(){const prompt=val("qp"),slots=[...document.querySelectorAll(".qo")].map(i=>i.value.trim()),ci=+document.querySelector("[name=qc]:checked").value;
+ const q=qs.find(x=>x.id===editQ);if(!q)return say("Question introuvable.");
+ if(!prompt||slots.filter(Boolean).length<2)return say("Énoncé et 2 réponses minimum.");if(!slots[ci])return say("La bonne réponse cochée est vide.");
+ if(!confirm("Enregistrer la modification ? Les scores déjà enregistrés ne sont pas recalculés."))return;
+ const old=(q.question_options||[]).slice().sort((x,y)=>x.display_order-y.display_order);let goodId=null;const del=[];
+ let r=await sb.from("questions").update({prompt}).eq("id",q.id);if(r.error)return say(r.error.message);
+ for(let i=0;i<4;i++){const t=slots[i],o=old[i];
+  if(t&&o){r=await sb.from("question_options").update({option_text:t,display_order:i}).eq("id",o.id);if(r.error)return say(r.error.message);if(i===ci)goodId=o.id}
+  else if(t){r=await sb.from("question_options").insert({question_id:q.id,option_text:t,display_order:i}).select("id").single();if(r.error)return say(r.error.message);if(i===ci)goodId=r.data.id}
+  else if(o)del.push(o.id)}
+ r=await sb.from("answer_keys").upsert({question_id:q.id,correct_option_id:goodId},{onConflict:"question_id"});if(r.error)return say(r.error.message);
+ if(del.length){r=await sb.from("question_options").delete().in("id",del);if(r.error)return say(r.error.message)}
+ say("Question modifiée.",1);openExam(exam.id)}
 let RES=[],rf={q:"",x:"",flag:false};
 const nz=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 async function loadResults(){const{data,error}=await sb.from("exam_attempts").select("id,candidate_id,status,score,total_questions,passed,suspicious_exit_count,flagged_for_review,unlocked,review_status,started_at,profiles!candidate_id(display_name,email),exams(code)").order("started_at",{ascending:false}).limit(1000);
@@ -118,7 +131,14 @@ document.addEventListener("click",async ev=>{const b=ev.target.closest("[data-ac
  if(a==="check"){const p=problems(qs);$("chk").innerHTML=p.length?`<div class="notice"><strong>Problèmes détectés</strong><ul>${p.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:'<div class="notice" style="background:#e3f6ec"><strong>Examen valide : prêt à être activé.</strong></div>';return}
  if(a==="toggle"){if(!exam.is_active){const p=problems(qs);if(p.length)return say("Activation refusée : cliquez sur « Vérifier l'examen ».")}
   const{error}=await sb.from("exams").update({is_active:!exam.is_active}).eq("id",exam.id);return error?say(error.message):(say("État mis à jour.",1),openExam(exam.id))}
- if(a==="addq")return addQuestion();
+ if(a==="addq")return editQ?saveQuestion():addQuestion();
+ if(a==="qcancel")return drawExam();
+ if(a==="editq"){const q=qs.find(x=>x.id===id),o=(q.question_options||[]).slice().sort((x,y)=>x.display_order-y.display_order),k=(Array.isArray(q.answer_keys)?q.answer_keys[0]:q.answer_keys)?.correct_option_id;
+  if(o.length>4)return say("Cette question a plus de 4 réponses : modification impossible ici.");
+  editQ=q.id;$("qp").value=q.prompt;document.querySelectorAll(".qo").forEach((i,n)=>i.value=o[n]?.option_text||"");
+  const ci=o.findIndex(x=>x.id===k),r=document.querySelector(`[name=qc][value="${ci<0?0:ci}"]`);if(r)r.checked=true;
+  $("qh").textContent="Modifier la question";$("qsave").textContent="Enregistrer la modification";$("qcancel").classList.remove("hidden");
+  $("qp").scrollIntoView({behavior:"smooth",block:"center"});$("qp").focus();return}
  if(a==="qactive"){const q=qs.find(x=>x.id===id);await sb.from("questions").update({active:!q.active}).eq("id",id);return openExam(exam.id)}
  if(a==="delq"){if(!confirm("Supprimer cette question ? Si elle a déjà été posée, le détail des réponses à cette question disparaît des anciens résultats (les scores ne changent pas)."))return;const{error}=await sb.from("questions").delete().eq("id",id);return error?say(error.code==="23503"?"Cette question a déjà été utilisée dans un examen passé : désactivez-la au lieu de la supprimer.":error.message):openExam(exam.id)}
  if(a==="delexam"){const{count}=await sb.from("exam_attempts").select("id",{count:"exact",head:true}).eq("exam_id",exam.id);
