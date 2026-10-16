@@ -5,12 +5,29 @@
 .tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}.tabs .on{background:var(--navy);color:#fff}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.row>*{flex:1;min-width:120px}
 .tag{padding:2px 8px;border-radius:20px;background:#edf1f6;font-size:12px}.bad{background:#fde7e9;color:#a9232f}.ok{background:#e3f6ec;color:#18794e}.wrap{overflow-x:auto}.q{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0}</style></head>
 <body>
-<header class="topbar"><div class="brand-mark">PN</div><div class="brand-copy"><strong>POLICE RP</strong><span>ESPACE RECRUTEUR</span></div>
+<header class="topbar"><div class="brand-mark">PN</div><div class="brand-copy"><strong>POLICE NATIONALE</strong><span>CENTRE D'INFORMATION ET DE RECRUTEMENT</span></div>
 <a href="index.html" style="margin-left:auto;color:#fff;font-size:12px;font-weight:700;border:1px solid #ffffff66;border-radius:8px;padding:7px 12px;text-decoration:none;white-space:nowrap">Espace candidat</a></header>
 <main class="page-shell">
-<section class="panel" id="login"><h2>Connexion personnel</h2>
-<form id="lf"><label>E-mail</label><input id="em" type="email" required><label>Mot de passe</label><input id="pw" type="password" required>
-<button class="button primary">Se connecter</button><p class="form-message" id="auth-msg"></p></form></section>
+    <main class="page-shell">
+    <section class="intro">
+      <p class="eyebrow">ESPACE RESERVE A LA DIRECTION</p>
+      <h1>Espace Recruteur</h1>
+    </section>
+
+<section class="panel" id="login">
+  <h2>Connexion Espace Recruteur</h2>
+  <form id="lf">
+    <label>E-mail</label>
+    <input id="em" type="email" placeholder="matricule@pn.fr" required>
+
+    <label>Mot de passe</label>
+    <input id="pw" type="password" placeholder="Saisissez votre mot de passe" required>
+
+    <button class="button primary">Se connecter</button>
+    <p class="form-message" id="auth-msg"></p>
+  </form>
+</section>
+
 <div id="app" class="hidden">
 <div class="tabs"><button class="button quiet" data-tab="exams">Examens</button><button class="button quiet" data-tab="results">Résultats</button><button class="button quiet" data-tab="access">Accès</button><button class="button quiet" data-act="logout" style="margin-left:auto">Déconnexion</button></div>
 <p class="form-message" id="msg"></p>
