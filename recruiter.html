@@ -83,9 +83,14 @@ async function addQuestion(){const prompt=val("qp"),opts=[...document.querySelec
  const{error:e3}=gid?await sb.from("answer_keys").insert({question_id:q.id,correct_option_id:gid}):{error:e2||{message:"Erreur"}};
  if(e2||e3){await sb.from("questions").delete().eq("id",q.id);return say((e2||e3).message)}
  say("Question ajoutée.",1);openExam(exam.id)}
-async function loadResults(){const{data,error}=await sb.from("exam_attempts").select("id,candidate_id,status,score,total_questions,passed,suspicious_exit_count,flagged_for_review,unlocked,review_status,started_at,profiles!candidate_id(display_name,email),exams(code)").order("started_at",{ascending:false}).limit(200);
- if(error)return say(error.message);const only=$("flt")?.checked;
- $("view").innerHTML=`<h2>Résultats</h2><label style="display:flex;gap:8px;align-items:center"><input id="flt" type="checkbox" style="width:auto" ${only?"checked":""} data-act="refresh"> Signalés uniquement</label><div class="wrap"><table><tr><th>Candidat</th><th>Examen</th><th>Date</th><th>État</th><th>Score</th><th>Sorties</th><th></th></tr>${data.filter(a=>!only||a.flagged_for_review).map(a=>`<tr><td>${esc(a.profiles?.display_name||"")}<br><small>${esc(a.profiles?.email||"")}</small></td><td>${esc(a.exams?.code)}</td><td>${new Date(a.started_at).toLocaleString("fr-FR")}</td><td>${a.status}</td><td>${a.score==null?"—":`${a.score}/${a.total_questions} ${tagOf(a)}`}</td><td>${a.suspicious_exit_count} ${a.flagged_for_review?'<span class="tag bad">à vérifier</span>':""}</td><td>${actions(a)}</td></tr>`).join("")}</table></div>`}
+let RES=[],rf={q:"",x:"",flag:false};
+const nz=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+async function loadResults(){const{data,error}=await sb.from("exam_attempts").select("id,candidate_id,status,score,total_questions,passed,suspicious_exit_count,flagged_for_review,unlocked,review_status,started_at,profiles!candidate_id(display_name,email),exams(code)").order("started_at",{ascending:false}).limit(1000);
+ if(error)return say(error.message);RES=data;
+ const codes=[...new Set(RES.map(a=>a.exams?.code).filter(Boolean))].sort();if(rf.x&&!codes.includes(rf.x))rf.x="";
+ $("view").innerHTML=`<h2>Résultats</h2><div class="row"><div><label>Rechercher un candidat</label><input id="rq" placeholder="Nom ou e-mail" value="${esc(rf.q)}" autocomplete="off"></div><div><label>Examen</label><select id="rx"><option value="">Tous les examens</option>${codes.map(c=>`<option ${c===rf.x?"selected":""}>${esc(c)}</option>`).join("")}</select></div><label style="display:flex;gap:8px;align-items:center;flex:0 0 auto"><input id="flt" type="checkbox" style="width:auto" ${rf.flag?"checked":""}> Signalés uniquement</label></div><p class="muted small" id="rcount"></p><div class="wrap"><table><tr><th>Candidat</th><th>Examen</th><th>Date</th><th>État</th><th>Score</th><th>Sorties</th><th></th></tr><tbody id="rbody"></tbody></table></div>`;drawResults()}
+function drawResults(){const q=nz(rf.q),list=RES.filter(a=>(!rf.x||a.exams?.code===rf.x)&&(!rf.flag||a.flagged_for_review)&&(!q||nz((a.profiles?.display_name||"")+" "+(a.profiles?.email||"")).includes(q)));
+ $("rbody").innerHTML=list.map(a=>`<tr><td>${esc(a.profiles?.display_name||"")}<br><small>${esc(a.profiles?.email||"")}</small></td><td>${esc(a.exams?.code)}</td><td>${new Date(a.started_at).toLocaleString("fr-FR")}</td><td>${a.status}</td><td>${a.score==null?"—":`${a.score}/${a.total_questions} ${tagOf(a)}`}</td><td>${a.suspicious_exit_count} ${a.flagged_for_review?'<span class="tag bad">à vérifier</span>':""}</td><td>${actions(a)}</td></tr>`).join("")||'<tr><td colspan="7">Aucun résultat.</td></tr>';$("rcount").textContent=`${list.length} résultat(s) sur ${RES.length}`}
 async function showDetail(id){
  const{data:a,error}=await sb.from("exam_attempts").select("question_order,candidate_id,score,total_questions,passed,status,review_status,profiles!candidate_id(display_name,email)").eq("id",id).single();if(error)return say(error.message);
  const ord=a.question_order||[];
@@ -138,5 +143,7 @@ document.addEventListener("click",async ev=>{const b=ev.target.closest("[data-ac
   const r=await fetch(`${cfg.functionsBaseUrl}/${FN_CREATE_USER}`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`,apikey:cfg.supabaseAnonKey},body:JSON.stringify({email:val("ue"),password:val("up"),displayName:val("un"),role:$("ur").value})});
   const d=await r.json().catch(()=>({}));return r.ok?(say("Compte créé.",1),loadAccess()):say(d.error||"Échec.")}});
 document.addEventListener("change",async ev=>{const id=ev.target.dataset?.role;if(!id)return;const{error}=await sb.from("profiles").update({role:ev.target.value}).eq("id",id);error?say(error.message):say("Rôle mis à jour.",1)});
+document.addEventListener("input",ev=>{if(ev.target.id==="rq"){rf.q=ev.target.value;drawResults()}});
+document.addEventListener("change",ev=>{if(ev.target.id==="rx"){rf.x=ev.target.value;drawResults()}if(ev.target.id==="flt"){rf.flag=ev.target.checked;drawResults()}});
 boot();
 </script></body></html>
