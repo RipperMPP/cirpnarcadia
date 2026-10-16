@@ -28,21 +28,34 @@
     if (user) { $("candidate-heading").textContent = "Votre espace de sélection"; loadMyResults(); }
   }
 
-  async function callFunction(name, payload) {
+  const networkError = () => Object.assign(new Error("Le serveur ne répond pas (connexion trop lente ou coupée)."), { network: true });
+  async function callFunction(name, payload, timeoutMs = 20000) {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) throw new Error("Votre session a expiré. Reconnectez-vous.");
-    const response = await fetch(`${cfg.functionsBaseUrl}/${name}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.access_token}`,
-        "apikey": cfg.supabaseAnonKey
-      },
-      body: JSON.stringify(payload || {})
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "La requête n'a pas abouti.");
-    return data;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${cfg.functionsBaseUrl}/${name}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+          "apikey": cfg.supabaseAnonKey
+        },
+        body: JSON.stringify(payload || {})
+      });
+      const data = await response.json().catch(() => ({}));
+      if (controller.signal.aborted) throw networkError();
+      if (!response.ok) throw new Error(data.error || "La requête n'a pas abouti.");
+      return data;
+    } catch (error) {
+      if (error.network) throw error;
+      if (error.name === "AbortError" || error instanceof TypeError) throw networkError();
+      throw error;
+    } finally {
+      window.clearTimeout(timer);
+    }
   }
 
   $("login-form").addEventListener("submit", async (event) => {
@@ -129,23 +142,47 @@
     if (currentIndex > 0) { currentIndex--; renderQuestion(); }
   });
 
+  let submitting = false;
+  async function submitAnswers() {
+    let sawNetworkError = false, lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await callFunction("super-service", {
+          attemptId: currentAttempt.id,
+          answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId })),
+          events: eventQueue
+        });
+      } catch (error) {
+        lastError = error;
+        if (sawNetworkError && /déjà terminée/.test(error.message || "")) {
+          return { answeredCount: Object.keys(answers).length }; // le premier envoi était bien arrivé
+        }
+        if (!error.network) break;
+        sawNetworkError = true;
+        message("exam-message", `Connexion lente, nouvel essai d'envoi (${attempt + 2}/3)…`, false);
+      }
+    }
+    throw lastError;
+  }
+
   $("next-button").addEventListener("click", async () => {
-    if (currentIndex < questions.length - 1) {
+    if (submitting) return;
+    const timeUp = Date.now() >= deadline;
+    if (currentIndex < questions.length - 1 && !timeUp) {
       currentIndex++;
       renderQuestion();
       return;
     }
     const unanswered = questions.filter(q => !answers[q.id]).length;
-    const confirmed = unanswered === 0 || window.confirm(`Il reste ${unanswered} question(s) sans réponse. Transmettre quand même ?`);
-    if (!confirmed) return;
+    if (!timeUp && unanswered > 0 && !window.confirm(`Il reste ${unanswered} question(s) sans réponse. Transmettre quand même ?`)) return;
+    submitting = true;
     $("next-button").disabled = true;
+    $("previous-button").disabled = true;
+    $("next-button").textContent = "Envoi en cours…";
+    message("exam-message", "Transmission de vos réponses en cours, ne fermez pas la page…", false);
     try {
-      try { await flushEvents(); } catch (_) { /* les événements restants partent avec la soumission */ }
-      const result = await callFunction("super-service", {
-        attemptId: currentAttempt.id,
-        answers: Object.entries(answers).map(([questionId, optionId]) => ({ questionId, optionId })),
-        events: eventQueue
-      });
+      try { await flushChain; } catch (_) { /* un envoi d'événements en cours : on continue */ }
+      const result = await submitAnswers();
       stopTimer();
       const finishedId = currentAttempt.id;
       currentAttempt = null;
@@ -153,10 +190,14 @@
       $("exam-finished").classList.remove("hidden");
       showFinishWarning(finishedId, localExitCount);
       $("finish-summary").textContent = `Examen transmis · Réponses traitées : ${result.answeredCount}/${questions.length}.`;
+      message("exam-message", "", false);
     } catch (error) {
-      message("exam-message", error.message || "La transmission a échoué. Vérifiez votre connexion et réessayez.");
+      $("next-button").textContent = "Réessayer l'envoi";
+      message("exam-message", `${error.message || "La transmission a échoué."} Vos réponses sont conservées : cliquez sur « Réessayer l'envoi ».`);
     } finally {
+      submitting = false;
       $("next-button").disabled = false;
+      $("previous-button").disabled = currentIndex === 0;
     }
   });
 
